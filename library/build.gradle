@@ -1,0 +1,57 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'maven-publish'
+
+android {
+    compileSdkVersion 32
+    buildToolsVersion "30.0.3"
+
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 32
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+repositories {
+    // Use Maven Central for resolving dependencies.
+    mavenCentral()
+}
+
+publishing {
+    repositories {
+        mavenLocal()
+    }
+    publications {
+        maven(MavenPublication) {
+            groupId 'com.adippe'
+            artifactId 'OTTSyncApi'
+            version '0.4.3'
+
+            afterEvaluate {
+                from components.release
+            }
+        }
+    }
+}
+
+dependencies {
+    // Parsing HTML
+    api 'org.jsoup:jsoup:1.15.1'
+
+    // Parsing JSON
+    /** Do not update to 2.13.2 it breaks compatibility with android < 24 !!! */
+//    api "com.fasterxml.jackson.module:jackson-module-kotlin:2.13.1"
+
+    // Networking
+    api "com.squareup.okhttp3:okhttp:5.0.0-alpha.9"
+    api "com.squareup.okhttp3:okhttp-dnsoverhttps:5.0.0-alpha.9"
+
+    // Async
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4'
+}

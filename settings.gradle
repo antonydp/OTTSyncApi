@@ -1,0 +1,2 @@
+rootProject.name = 'OTTSyncApi'
+include ':library', ':app'
