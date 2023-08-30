@@ -12,7 +12,7 @@ import okhttp3.OkHttpClient
 
 class MainActivity : AppCompatActivity() {
     private lateinit var roomSyncLibrary: RoomSyncLibrary
-    private val roomId = "88bbb9b5-ba5b-4225-9d3d-06344fd9541a"
+    private val roomId = "60a4ee0a-e30d-494e-9086-858c42a4414f"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,9 +25,11 @@ class MainActivity : AppCompatActivity() {
 
         // Collect sync events using Flow
         lifecycleScope.launch {
+            Log.d("FlowCollect", "Flow collection started")
             roomSyncLibrary.syncMessageFlow.collect { syncEvent ->
-                handleSyncEvent(syncEvent)
-            }
+                Log.d("FlowCollect", "Received sync event: $syncEvent")
+                handleSyncEvent(syncEvent)            }
+            Log.d("FlowCollect", "Flow collection ended")
         }
     }
 
@@ -35,8 +37,7 @@ class MainActivity : AppCompatActivity() {
         when (syncEvent) {
             is SyncEvent.Seek -> {
                 val playbackPosition = syncEvent.playbackPosition
-                val playbackSpeed = syncEvent.playbackSpeed
-                Log.d("SyncEventDebug", "Seek event - Playback Position: $playbackPosition, Playback Speed: $playbackSpeed")
+                Log.d("SyncEventDebug", "Seek event - Playback Position: $playbackPosition")
                 // Handle Seek sync event
             }
             is SyncEvent.PlaybackSpeed -> {
@@ -53,6 +54,16 @@ class MainActivity : AppCompatActivity() {
             is SyncEvent.Play -> {
                 Log.d("SyncEventDebug", "Play event")
                 // Handle Play sync event
+            }
+            is SyncEvent.TitleChanged -> {
+                val title = syncEvent.titleValue
+                Log.d("SyncEventDebug", "Title event - Value: $title")
+                // Handle Title sync event
+            }
+            is SyncEvent.Message -> {
+                val messageData = syncEvent.messageData
+                Log.d("SyncEventDebug", "Message event - Value: $messageData")
+                // Handle Message sync event
             }
         }
     }

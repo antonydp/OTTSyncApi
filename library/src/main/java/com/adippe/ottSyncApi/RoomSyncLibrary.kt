@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -103,6 +104,7 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
     private fun sendWebSocketAction(actionJson: JSONObject) {
         webSocket.send(actionJson.toString())
     }
+
     // Function to the play auth over WebSocket
     private fun sendAuthAction(token: String) {
         val playPayload = JSONObject()
@@ -205,19 +207,27 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
     private fun handleSyncMessage(messageJson: JSONObject) {
         val playbackPosition = messageJson.optDouble("playbackPosition", Double.NaN)
         val playbackSpeed = messageJson.optDouble("playbackSpeed", Double.NaN)
+        val titleChanged = messageJson.optString("title", "")
+
         val isPlaying = messageJson.optBoolean("isPlaying", false)
+        val isSeek = !playbackPosition.isNaN() && !messageJson.has("isPlaying") && !messageJson.has("playbackSpeed")
+        val isPlaybackSpeed = !playbackSpeed.isNaN() && !isSeek
+        val isPause = !playbackPosition.isNaN() && !isSeek &&!isPlaybackSpeed
 
         val syncEvent = when {
-            !playbackPosition.isNaN() && !playbackSpeed.isNaN() -> SyncEvent.Seek(playbackPosition, playbackSpeed)
-            !playbackPosition.isNaN() && isPlaying -> SyncEvent.PlaybackSpeed(playbackPosition, playbackSpeed)
-            !playbackPosition.isNaN() && !isPlaying -> SyncEvent.Pause(playbackPosition)
             isPlaying -> SyncEvent.Play
+            isSeek -> SyncEvent.Seek(playbackPosition)
+            isPause -> SyncEvent.Pause(playbackPosition)
+            isPlaybackSpeed -> SyncEvent.PlaybackSpeed(playbackPosition, playbackSpeed)
+            titleChanged.isNotBlank() -> SyncEvent.TitleChanged(titleChanged)
             else -> null
         }
 
         syncEvent?.let {
             // Emit the sync event through syncMessageFlow
-            _syncMessageFlow.tryEmit(it)
+            runBlocking {
+                _syncMessageFlow.emit(it)
+            }
         }
 
     }
@@ -277,7 +287,13 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         val from = messageJson.getJSONObject("from")
         val user = userFromJsonObject(from)
         val text = messageJson.getString("text")
-
+        val syncEvent = SyncEvent.Message(text)
+        syncEvent.let {
+            // Emit the sync event through syncMessageFlow
+            runBlocking {
+                _syncMessageFlow.emit(it)
+            }
+        }
         // Now you can use the extracted values as needed for handling the chat message
         Log.d("WebSocketDebug", "Received chat message: $text from ${user.name} (ID: ${user.id})")
     }
@@ -299,11 +315,16 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
 
     }
 }
+
 sealed class SyncEvent {
-    data class Seek(val playbackPosition: Double, val playbackSpeed: Double) : SyncEvent()
+    data class Seek(val playbackPosition: Double) : SyncEvent()
     data class PlaybackSpeed(val playbackPosition: Double, val playbackSpeed: Double) : SyncEvent()
     data class Pause(val playbackPosition: Double) : SyncEvent()
     object Play : SyncEvent()
+    data class TitleChanged(val titleValue: String) : SyncEvent()
+
+    data class Message(val messageData: String) : SyncEvent()
+
 }
 
 
