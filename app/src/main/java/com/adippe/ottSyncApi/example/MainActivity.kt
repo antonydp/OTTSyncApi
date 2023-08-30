@@ -12,7 +12,7 @@ import okhttp3.OkHttpClient
 
 class MainActivity : AppCompatActivity() {
     private lateinit var roomSyncLibrary: RoomSyncLibrary
-    private val roomId = "60a4ee0a-e30d-494e-9086-858c42a4414f"
+    private val roomId = "09c39c30-43f9-4c8d-8a77-6ed992e8abd2"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,6 +70,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupButtons() {
         val joinButton = findViewById<Button>(R.id.joinButton)
+        val generateRoomButton = findViewById<Button>(R.id.generateRoomButton)
         val playButton = findViewById<Button>(R.id.playButton)
         val pauseButton = findViewById<Button>(R.id.pauseButton)
         val seekButton = findViewById<Button>(R.id.seekButton)
@@ -81,6 +82,12 @@ class MainActivity : AppCompatActivity() {
         joinButton.setOnClickListener {
             lifecycleScope.launch {
                 roomSyncLibrary.joinRoom(roomId)
+            }
+        }
+
+        generateRoomButton.setOnClickListener {
+            lifecycleScope.launch {
+                roomSyncLibrary.generateRoom()
             }
         }
 

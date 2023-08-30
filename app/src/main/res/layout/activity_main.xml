@@ -91,7 +91,17 @@
                 android:layout_height="wrap_content"
                 android:text="Leave Room"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/chatButton"
+                app:layout_constraintTop_toBottomOf="@+id/updatePlaybackRate"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="16dp"/>
+
+        <Button
+                android:id="@+id/generateRoomButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="generate Room"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/leaveRoom"
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="16dp"/>
 
