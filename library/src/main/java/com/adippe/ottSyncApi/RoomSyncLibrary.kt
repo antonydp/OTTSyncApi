@@ -22,22 +22,19 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
     private lateinit var webSocket: WebSocket
     private var userID: String? = null
     private var isAdmin: Boolean = false
-    private var username: String? = null
-    private var password: String? = null
-    var roomID: String? = null
+    private var roomID: String? = null
 
     // Create a MutableSharedFlow for sync messages
     private val _syncMessageFlow = MutableSharedFlow<SyncEvent>()
     val syncMessageFlow: Flow<SyncEvent> = _syncMessageFlow.asSharedFlow()
 
-    suspend fun generateRoom() = withContext(Dispatchers.IO){
-        username = "hqf8h48"
-        password = "Afana3qfqnq32"
+    suspend fun generateRoom(username: String, password: String) : String? = withContext(Dispatchers.IO) {
         generateRoomID()
         joinRoom(roomID?: throw Exception("No roomID"))
-        registerUser(username?: throw Exception("No user"), password?: throw Exception("No pass"))
-        performLogin(token?: throw Exception("No token"))
+        registerUser(username, password)
+        performLogin(token?: throw Exception("No token"), username, password)
         claimRoom(roomID?: throw Exception("No roomID"), token?: throw Exception("No token"))
+        return@withContext roomID
     }
     private suspend fun generateRoomID() = withContext(Dispatchers.IO) {
 
@@ -92,7 +89,7 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
 
         response.close()
     }
-    private suspend fun performLogin(token: String) = withContext(Dispatchers.IO) {
+    private suspend fun performLogin(token: String, username: String, password: String) = withContext(Dispatchers.IO) {
         val loginRequestBody = JSONObject().apply {
             put("user", username)
             put("password", password)

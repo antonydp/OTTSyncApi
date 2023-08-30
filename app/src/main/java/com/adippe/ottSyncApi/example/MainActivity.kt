@@ -3,6 +3,8 @@ package com.adippe.ottSyncApi.example
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
+import android.widget.EditText
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -12,8 +14,7 @@ import okhttp3.OkHttpClient
 
 class MainActivity : AppCompatActivity() {
     private lateinit var roomSyncLibrary: RoomSyncLibrary
-    private val roomId = "09c39c30-43f9-4c8d-8a77-6ed992e8abd2"
-
+    private lateinit var roomId: String
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -69,6 +70,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupButtons() {
+        val roomIdEditText = findViewById<EditText>(R.id.roomIdEditText)
         val joinButton = findViewById<Button>(R.id.joinButton)
         val generateRoomButton = findViewById<Button>(R.id.generateRoomButton)
         val playButton = findViewById<Button>(R.id.playButton)
@@ -80,14 +82,21 @@ class MainActivity : AppCompatActivity() {
         val leaveRoom = findViewById<Button>(R.id.leaveRoom)
 
         joinButton.setOnClickListener {
-            lifecycleScope.launch {
-                roomSyncLibrary.joinRoom(roomId)
+
+            val roomId = roomIdEditText.text.toString()
+            if (roomId.isNotEmpty()) {
+                lifecycleScope.launch {
+                    roomSyncLibrary.joinRoom(roomId)
+                }
+            } else {
+                // Handle empty input case
+                Toast.makeText(this, "Please enter a valid Room ID", Toast.LENGTH_SHORT).show()
             }
         }
 
         generateRoomButton.setOnClickListener {
             lifecycleScope.launch {
-                roomSyncLibrary.generateRoom()
+                roomId = roomSyncLibrary.generateRoom("fijafeafa", "qf[€]14d1j2")?: throw Exception("NO roomID")
             }
         }
 

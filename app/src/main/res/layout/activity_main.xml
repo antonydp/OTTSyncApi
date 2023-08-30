@@ -15,13 +15,26 @@
             android:layout_height="match_parent"
             tools:context=".MainActivity">
 
+        <EditText
+                android:id="@+id/roomIdEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter Room ID"
+                android:layout_alignParentTop="true"
+                android:layout_centerHorizontal="true"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="16dp"
+                android:inputType="text"
+                tools:ignore="MissingConstraints"/>
+
         <Button
                 android:id="@+id/joinButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Join Room"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/roomIdEditText"
+                android:layout_centerHorizontal="true"
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="16dp"/>
 
