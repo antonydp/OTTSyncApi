@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import okhttp3.*
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
@@ -23,6 +24,7 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
     private var userID: String? = null
     private var isAdmin: Boolean = false
     private var roomID: String? = null
+    private var isWebSocketConnected = false
 
     // Create a MutableSharedFlow for sync messages
     private val _syncMessageFlow = MutableSharedFlow<SyncEvent>()
@@ -127,7 +129,6 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         }
     }
 
-
     private suspend fun getToken(): String? = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url("$baseUrl/api/auth/grant")
@@ -163,10 +164,33 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         sendAuthAction(token)
     }
 
+    suspend fun setCurrentSource(url: String) = withContext(Dispatchers.IO) {
+        val urlBuilder = "$baseUrl/api/data/previewAdd".toHttpUrl().newBuilder()
+        urlBuilder.addQueryParameter("input", url)
+        val urlWithQuery = urlBuilder.build()
+
+        val request = Request.Builder()
+                .url(urlWithQuery)
+                .get()
+                .build()
+
+        val response = okHttpClient.newCall(request).execute()
+        if (response.isSuccessful) {
+            println("Room title updated successfully")
+            val responseBody = response.body.string()
+            val sourceJson = JSONObject(responseBody)
+            val source = sourceJson.getJSONArray("result").get(0) as JSONObject
+            sendRequestAction(source)
+        } else {
+            throw Exception("failed to obtain video data")
+        }
+
+    }
     // Function to create a WebSocketListener
     private fun createWebSocketListener(): WebSocketListener {
         return object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                isWebSocketConnected = true
                 Log.d("WebSocketDebug", "WebSocket connection opened")
             }
 
@@ -174,7 +198,7 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
             override fun onMessage(webSocket: WebSocket, text: String) {
                 val messageJson = JSONObject(text)
                 val action = messageJson.getString("action")
-                val webSocketAction = WebSocketAction.valueOf(action.toUpperCase())
+                val webSocketAction = WebSocketAction.valueOf(action.uppercase())
 
                 when (webSocketAction) {
                     WebSocketAction.AUTH -> handleAuthMessage(messageJson)
@@ -208,7 +232,11 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
 
     // Function to send a JSON action over WebSocket
     private fun sendWebSocketAction(actionJson: JSONObject) {
-        webSocket.send(actionJson.toString())
+        if (isWebSocketConnected) {
+            webSocket.send(actionJson.toString())
+        } else {
+            Log.d("WebSocketDebug", "WebSocket is not connected. Action not sent.")
+        }
     }
 
     // Function to the play auth over WebSocket
@@ -230,6 +258,17 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         sendWebSocketAction(playPayload)
     }
 
+    private fun sendRequestAction(source : JSONObject) {
+        val playPayload = JSONObject()
+        playPayload.put("action", "req")
+        playPayload.put("request",
+            JSONObject()
+                .apply {put("type", 14)}
+                .apply {put("video", source)}
+        )
+        sendWebSocketAction(playPayload)
+    }
+
     // Function to send the pause action over WebSocket
     fun sendPauseAction() {
         val pausePayload = JSONObject()
@@ -239,6 +278,20 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
             put("state", false)
         })
         sendWebSocketAction(pausePayload)
+    }
+
+    fun sendBufferingAction() {
+        val bufferingPayload = JSONObject()
+        bufferingPayload.put("action", "status")
+        bufferingPayload.put("status", "buffering")
+        sendWebSocketAction(bufferingPayload)
+    }
+
+    fun sendReadyAction() {
+        val readyPayload = JSONObject()
+        readyPayload.put("action", "status")
+        readyPayload.put("status", "ready")
+        sendWebSocketAction(readyPayload)
     }
 
     // Function to send the seek action over WebSocket
@@ -274,7 +327,7 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         sendWebSocketAction(playbackRatePayload)
     }
 
-    fun kickUser(user: User) {
+    fun kickUser(user: User): Boolean {
         val kickPayload = JSONObject()
         kickPayload.put("action", "req")
         kickPayload.put("request", JSONObject().apply {
@@ -282,15 +335,42 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
                 put("clientId", user.id)
             })
 
-        if (isAdmin){sendWebSocketAction(kickPayload)}
-        else {throw Exception("NOT AN ADMIN")}
+        return if (isAdmin){
+            sendWebSocketAction(kickPayload)
+            true
+        } else {
+            false
+        }
+
+    }
+    fun promoteUser(user: User): Boolean {
+        val kickPayload = JSONObject()
+        kickPayload.put("action", "req")
+        kickPayload.put("request", JSONObject().apply {
+            put("type", 9)
+            put("targetClientId", user.id)
+            put("role", 4)
+            })
+
+        return if (isAdmin){
+            sendWebSocketAction(kickPayload)
+            true
+        } else {
+            false
+        }
+
     }
     // Function to close the WebSocket
     fun leaveRoom() {
+        if (isWebSocketConnected) {
+            webSocket.cancel()
+        } else {
+            Log.d("WebSocketDebug", "WebSocket is not connected.")
+        }
         webSocket.cancel()
     }
 
-    suspend fun updateRoomTitle(roomId: String, newTitle: String) {
+    suspend fun updateRoomTitle(roomId: String, newTitle: String) : Boolean {
         val apiUrl = "$baseUrl/api/room/$roomId"
         val requestBody = JSONObject().apply {
             put("title", newTitle)
@@ -306,16 +386,15 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         withContext(Dispatchers.IO) {
             val response = okHttpClient.newCall(request).execute()
             if (response.isSuccessful) {
-                println("Room title updated successfully")
-            } else {
-                println("Failed to update room title")
-            }
+                return@withContext true
+            } else {}
         }
+        return false
     }
 
     private fun handleAuthMessage(messageJson: JSONObject) {
         val token = messageJson.getString("token")
-        Log.d("boh", token)
+        Log.d("token", token)
         // Handle authentication token
     }
 
@@ -323,11 +402,14 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         val playbackPosition = messageJson.optDouble("playbackPosition", Double.NaN)
         val playbackSpeed = messageJson.optDouble("playbackSpeed", Double.NaN)
         val titleChanged = messageJson.optString("title", "")
+        val currentSource = messageJson.optJSONObject("currentSource")
 
         val isPlaying = messageJson.optBoolean("isPlaying", false)
         val isSeek = !playbackPosition.isNaN() && !messageJson.has("isPlaying") && !messageJson.has("playbackSpeed")
         val isPlaybackSpeed = !playbackSpeed.isNaN() && !isSeek
         val isPause = !playbackPosition.isNaN() && !isSeek &&!isPlaybackSpeed
+        val isCurrentSourceUpdated = messageJson.has("currentSource")
+
 
         val syncEvent = when {
             isPlaying -> SyncEvent.Play
@@ -335,6 +417,7 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
             isPause -> SyncEvent.Pause(playbackPosition)
             isPlaybackSpeed -> SyncEvent.PlaybackSpeed(playbackPosition, playbackSpeed)
             titleChanged.isNotBlank() -> SyncEvent.TitleChanged(titleChanged)
+            isCurrentSourceUpdated -> currentSource?.let { sourceFromJsonObject(it) }?.let { SyncEvent.SourceUpdated(it) }
             else -> null
         }
 
@@ -355,39 +438,25 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
     }
 
     private fun handleUserMessage(messageJson: JSONObject) {
-        val updateType = messageJson.getJSONObject("update").getString("kind")
-
         val updateObject = messageJson.getJSONObject("update")
+
+        val updateType = updateObject.getString("kind")
         when (val value = updateObject.get("value")) {
             is JSONObject -> {
-                // Handle the case where value is a JSONObject
                 val user = userFromJsonObject(value)
-                Log.d("WebSocketDebug", "${user.name} (ID: ${user.id}), type: $updateType")
-
-
-                // Now you can use the extracted values as needed
-            }
-
-            is JSONArray -> {
-                // Handle the case where value is a JSONArray
-
-                for (i in 0 until value.length()) {
-                    val userObject = value.getJSONObject(i)
-                    val user = userFromJsonObject(userObject)
-
-                    Log.d("WebSocketDebug", "${user.name} (ID: ${user.id})), type: $updateType")
-
-                    // Now you can use the extracted values as needed for each element in the array
+                Log.d("WebSocketDebug", "${user.name} (ID: ${user.id}), type: $updateType")        // Handle user update based on update type and value
+                val syncEvent = SyncEvent.Status(user.id, StatusValues.valueOf(user.status.uppercase()))
+                syncEvent.let {
+                    // Emit the sync event through syncMessageFlow
+                    runBlocking {
+                        _syncMessageFlow.emit(it)
+                    }
                 }
             }
+            is JSONArray -> {
 
-            else -> {
-                // Handle the case where value has an unexpected type
             }
         }
-        // Handle user update based on update type and value
-        Log.d("boh", messageJson.toString())
-
     }
 
     private fun handleStatusMessage(messageJson: JSONObject) {
@@ -427,6 +496,18 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         return User(id, name, isLoggedIn, status, role)
 
     }
+
+    private fun sourceFromJsonObject(userObject: JSONObject): CurrentSource {
+        val description = userObject.getString("description")
+        val id = userObject.getString("id")
+        val length = userObject.getString("length")
+        val service = userObject.getString("service")
+        val startAt = userObject.getString("startAt")
+        val thumbnail = userObject.getString("thumbnail")
+        val title = userObject.getString("title")
+        return CurrentSource(description, id, length, service, startAt, thumbnail, title )
+    }
+
 
     suspend fun getUser(roomName: String): List<User>? = withContext(Dispatchers.IO) {
         val request = Request.Builder()
@@ -468,11 +549,17 @@ sealed class SyncEvent {
     data class Pause(val playbackPosition: Double) : SyncEvent()
     object Play : SyncEvent()
     data class TitleChanged(val titleValue: String) : SyncEvent()
-
     data class Message(val messageData: String) : SyncEvent()
+    data class Status(val userID: String,val statusData: StatusValues) : SyncEvent()
+    data class SourceUpdated(val source: CurrentSource): SyncEvent()
 
 }
 
+enum class StatusValues(val value: String) {
+    BUFFERING("buffering"),
+    READY("ready"),
+    NONE("none")
+}
 
 enum class WebSocketAction(val value: String) {
     AUTH("auth"),
@@ -492,3 +579,12 @@ data class User(
     val role: Int
 )
 
+data class CurrentSource(
+    val description: String,
+    val id: String,
+    val length: String,
+    val service: String,
+    val startAt: String,
+    val thumbnail: String,
+    val title: String
+)

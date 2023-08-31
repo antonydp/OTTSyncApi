@@ -2,19 +2,30 @@ package com.antonydp.ottSyncApi.example
 
 import android.os.Bundle
 import android.util.Log
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.launch
 import com.antonydp.ottSyncApi.RoomSyncLibrary
 import com.antonydp.ottSyncApi.SyncEvent
+import com.antonydp.ottSyncApi.User
+import kotlinx.coroutines.MainScope
 import okhttp3.OkHttpClient
 
 class MainActivity : AppCompatActivity() {
     private lateinit var roomSyncLibrary: RoomSyncLibrary
     private lateinit var roomId: String
+
+    private val users: MutableList<User> = mutableListOf()
+    private lateinit var userAdapter: UserAdapter
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -28,8 +39,8 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             Log.d("FlowCollect", "Flow collection started")
             roomSyncLibrary.syncMessageFlow.collect { syncEvent ->
-                Log.d("FlowCollect", "Received sync event: $syncEvent")
-                handleSyncEvent(syncEvent)            }
+                handleSyncEvent(syncEvent)
+            }
             Log.d("FlowCollect", "Flow collection ended")
         }
     }
@@ -66,11 +77,22 @@ class MainActivity : AppCompatActivity() {
                 Log.d("SyncEventDebug", "Message event - Value: $messageData")
                 // Handle Message sync event
             }
+            is SyncEvent.Status -> {
+                val statusData = syncEvent.statusData
+                val userID = syncEvent.userID
+                Log.d("SyncEventDebug", "Status event - Value: $statusData, userID: $userID")
+            }
+            is SyncEvent.SourceUpdated -> {
+                val source = syncEvent.source
+                Log.d("SyncEventDebug", "Source event - Source Title: ${source.title}, Source ID (link for direct urls): ${source.id} ")
+            }
         }
     }
 
     private fun setupButtons() {
         val roomIdEditText = findViewById<EditText>(R.id.roomIdEditText)
+        val userIdEditText = findViewById<EditText>(R.id.userEditText)
+        val passwordIdEditText = findViewById<EditText>(R.id.passwordEditText)
         val joinButton = findViewById<Button>(R.id.joinButton)
         val generateRoomButton = findViewById<Button>(R.id.generateRoomButton)
         val playButton = findViewById<Button>(R.id.playButton)
@@ -80,6 +102,41 @@ class MainActivity : AppCompatActivity() {
         val updateTitleButton = findViewById<Button>(R.id.updateTitleButton)
         val playbackRate = findViewById<Button>(R.id.updatePlaybackRate)
         val leaveRoom = findViewById<Button>(R.id.leaveRoom)
+        val playVideo = findViewById<Button>(R.id.playVideoUrl)
+        val playVideoEditText = findViewById<EditText>(R.id.playVideoUrlEditText)
+        val bufferingButon = findViewById<Button>(R.id.buffering)
+        val readyButon = findViewById<Button>(R.id.ready)
+        val getUserButton = findViewById<Button>(R.id.getUserButton)
+        val userRecyclerView = findViewById<RecyclerView>(R.id.userRecyclerView)
+
+        userAdapter = UserAdapter(users) { user ->
+            val success = roomSyncLibrary.kickUser(user)
+            if (!success) {
+                Toast.makeText(this@MainActivity, "you need to be admin to kick user", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        userRecyclerView.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = userAdapter
+        }
+
+        getUserButton.setOnClickListener {
+            val roomId = roomIdEditText.text.toString()
+            if (roomId.isNotEmpty()) {
+                MainScope().launch {
+                    val userList = roomSyncLibrary.getUser(roomId)
+                    users.clear()
+                    users.addAll(userList?: emptyList())
+                    userAdapter.notifyDataSetChanged()
+                }
+            }
+            else {
+                // Handle empty input case
+                Toast.makeText(this, "Please enter a valid Room ID", Toast.LENGTH_SHORT).show()
+            }
+
+        }
 
         joinButton.setOnClickListener {
 
@@ -95,8 +152,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         generateRoomButton.setOnClickListener {
-            lifecycleScope.launch {
-                roomId = roomSyncLibrary.generateRoom("fijafeafa", "qf[€]14d1j2")?: throw Exception("NO roomID")
+            val user = userIdEditText.text.toString()
+            val password = passwordIdEditText.text.toString()
+            if (user.isNotEmpty() && password.isNotEmpty()) {
+                lifecycleScope.launch {
+                    roomId = roomSyncLibrary.generateRoom(user, password) ?: throw Exception("NO roomID")
+                    roomIdEditText.text.clear()
+                    roomIdEditText.append(roomId)
+
+                }
+            }
+            else{
+                Toast.makeText(this, "Please enter a valid user and password", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -123,8 +190,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         updateTitleButton.setOnClickListener {
-            lifecycleScope.launch {
-                roomSyncLibrary.updateRoomTitle(roomId, "ghas")
+            val roomId = roomIdEditText.text.toString()
+            if (roomId.isNotEmpty()) {
+                lifecycleScope.launch {
+                    roomSyncLibrary.updateRoomTitle(roomId, "ghas")
+                }
+            }
+            else {
+                // Handle empty input case
+                Toast.makeText(this, "Please enter a valid Room ID", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -139,6 +213,64 @@ class MainActivity : AppCompatActivity() {
                 roomSyncLibrary.leaveRoom()
             }
         }
+
+        playVideo.setOnClickListener {
+
+            val videoUrl = playVideoEditText.text.toString()
+            if (videoUrl.isNotEmpty()) {
+                lifecycleScope.launch {
+                    roomSyncLibrary.setCurrentSource(videoUrl)
+                }
+            } else {
+                // Handle empty input case
+                Toast.makeText(this, "Please enter a valid video Url", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        bufferingButon.setOnClickListener {
+            roomSyncLibrary.sendBufferingAction()
+        }
+
+        readyButon.setOnClickListener {
+            roomSyncLibrary.sendReadyAction()
+        }
+
     }
 
+}
+class UserAdapter(
+    private val userList: List<User>,
+    private val kickUserClickListener: (User) -> Unit
+) : RecyclerView.Adapter<UserAdapter.UserViewHolder>() {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): UserViewHolder {
+        val itemView = LayoutInflater.from(parent.context).inflate(R.layout.user_item, parent, false)
+        return UserViewHolder(itemView)
+    }
+
+    override fun onBindViewHolder(holder: UserViewHolder, position: Int) {
+        val currentUser = userList[position]
+        holder.bind(currentUser)
+    }
+
+    override fun getItemCount(): Int {
+        return userList.size
+    }
+
+    inner class UserViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val nameTextView: TextView = itemView.findViewById(R.id.nameTextView)
+        private val idTextView: TextView = itemView.findViewById(R.id.idTextView)
+        private val roleTextView: TextView = itemView.findViewById(R.id.roleTextView)
+        private val kickButton: Button = itemView.findViewById(R.id.kickButton)
+
+        fun bind(user: User) {
+            nameTextView.text = user.name
+            idTextView.text = user.id
+            roleTextView.text = user.role.toString()
+
+            kickButton.setOnClickListener {
+                kickUserClickListener(user)
+            }
+        }
+    }
 }
