@@ -1,4 +1,4 @@
-package com.adippe.ottSyncApi
+package com.antonydp.ottSyncApi
 
 import android.util.Log
 import kotlinx.coroutines.Dispatchers

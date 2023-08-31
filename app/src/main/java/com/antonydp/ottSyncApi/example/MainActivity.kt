@@ -1,4 +1,4 @@
-package com.adippe.ottSyncApi.example
+package com.antonydp.ottSyncApi.example
 
 import android.os.Bundle
 import android.util.Log
@@ -8,8 +8,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
-import com.adippe.ottSyncApi.RoomSyncLibrary
-import com.adippe.ottSyncApi.SyncEvent
+import com.antonydp.ottSyncApi.RoomSyncLibrary
+import com.antonydp.ottSyncApi.SyncEvent
 import okhttp3.OkHttpClient
 
 class MainActivity : AppCompatActivity() {

@@ -19,19 +19,18 @@ android {
     }
 }
 repositories {
-    // Use Maven Central for resolving dependencies.
-    mavenCentral()
+    maven { url 'https://jitpack.io' } // JitPack repository
 }
 
 publishing {
     repositories {
-        mavenLocal()
+        maven { url 'https://jitpack.io' } // Add JitPack repository
     }
     publications {
         maven(MavenPublication) {
-            groupId 'com.adippe'
+            groupId 'com.antonydp'
             artifactId 'OTTSyncApi'
-            version '0.4.3'
+            version '0.1.0'
 
             afterEvaluate {
                 from components.release
@@ -39,6 +38,7 @@ publishing {
         }
     }
 }
+
 
 dependencies {
     // Parsing HTML

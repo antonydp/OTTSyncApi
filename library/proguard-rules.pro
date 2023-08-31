@@ -1,1 +1,1 @@
--keep public class com.adippe.** { public *;}
+-keep public class com.antonydp.** { public *;}

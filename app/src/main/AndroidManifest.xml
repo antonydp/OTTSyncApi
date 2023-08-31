@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.adippe.ottSyncApi.example">
+    package="com.antonydp.ottSyncApi.example">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <application
@@ -10,7 +10,7 @@
         android:usesCleartextTraffic="true">
 
         <activity
-            android:name="com.adippe.ottSyncApi.example.MainActivity"
+            android:name="com.antonydp.ottSyncApi.example.MainActivity"
 
             android:exported="true">
             <intent-filter>
