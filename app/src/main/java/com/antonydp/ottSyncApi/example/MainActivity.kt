@@ -109,12 +109,23 @@ class MainActivity : AppCompatActivity() {
         val getUserButton = findViewById<Button>(R.id.getUserButton)
         val userRecyclerView = findViewById<RecyclerView>(R.id.userRecyclerView)
 
-        userAdapter = UserAdapter(users) { user ->
-            val success = roomSyncLibrary.kickUser(user)
-            if (!success) {
-                Toast.makeText(this@MainActivity, "you need to be admin to kick user", Toast.LENGTH_SHORT).show()
+        userAdapter = UserAdapter(
+            users,
+            kickUserClickListener = { user ->
+                val success = roomSyncLibrary.kickUser(user)
+                if (!success) {
+                    Toast.makeText(this@MainActivity, "you need to be admin to kick user", Toast.LENGTH_SHORT).show()
+                }
+            },
+            promoteUserClickListener = { user ->
+                lifecycleScope.launch {
+                    val success = roomSyncLibrary.promoteUser(user)
+                    if (!success) {
+                        Toast.makeText(this@MainActivity, "you need to be admin to promote user and the user to promote has to be logged", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
-        }
+        )
 
         userRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -240,6 +251,7 @@ class MainActivity : AppCompatActivity() {
 }
 class UserAdapter(
     private val userList: List<User>,
+    private val promoteUserClickListener: (User) -> Unit,
     private val kickUserClickListener: (User) -> Unit
 ) : RecyclerView.Adapter<UserAdapter.UserViewHolder>() {
 
@@ -262,6 +274,7 @@ class UserAdapter(
         private val idTextView: TextView = itemView.findViewById(R.id.idTextView)
         private val roleTextView: TextView = itemView.findViewById(R.id.roleTextView)
         private val kickButton: Button = itemView.findViewById(R.id.kickButton)
+        private val promoteButton: Button = itemView.findViewById(R.id.promoteButton)
 
         fun bind(user: User) {
             nameTextView.text = user.name
@@ -270,6 +283,9 @@ class UserAdapter(
 
             kickButton.setOnClickListener {
                 kickUserClickListener(user)
+            }
+            promoteButton.setOnClickListener {
+                promoteUserClickListener(user)
             }
         }
     }

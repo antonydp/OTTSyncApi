@@ -343,22 +343,48 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         }
 
     }
-    fun promoteUser(user: User): Boolean {
+    suspend fun promoteUser(user: User): Boolean {
         val kickPayload = JSONObject()
         kickPayload.put("action", "req")
         kickPayload.put("request", JSONObject().apply {
             put("type", 9)
             put("targetClientId", user.id)
             put("role", 4)
-            })
+        })
 
-        return if (isAdmin){
-            sendWebSocketAction(kickPayload)
-            true
-        } else {
-            false
+        if (!isAdmin) {
+            return false
         }
 
+
+        val roomURL = "https://opentogethertube.com/api/room/$roomID"
+        val request = Request.Builder()
+            .url(roomURL)
+            .get()
+            .build()
+
+        val response = withContext(Dispatchers.IO) {
+            okHttpClient.newCall(request).execute()
+        }
+
+        if (response.isSuccessful) {
+            val responseString = response.body.string()
+            val jsonResponse = JSONObject(responseString)
+            val usersArray = jsonResponse.getJSONArray("users")
+
+            for (i in 0 until usersArray.length()) {
+                val userObj = usersArray.getJSONObject(i)
+                if (userObj.optString("id") == user.id && userObj.optBoolean("isLoggedIn")) {
+                    sendWebSocketAction(kickPayload)
+                    return true
+                }
+                if (userObj.optString("id") == user.id && !userObj.optBoolean("isLoggedIn")) {
+                    Log.d("WebSocketDebug", "Can't promote not logged users.")
+                }
+            }
+        }
+
+        return false
     }
     // Function to close the WebSocket
     fun leaveRoom() {
@@ -443,22 +469,28 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         val updateType = updateObject.getString("kind")
         when (val value = updateObject.get("value")) {
             is JSONObject -> {
-                val user = userFromJsonObject(value)
-                Log.d("WebSocketDebug", "${user.name} (ID: ${user.id}), type: $updateType")        // Handle user update based on update type and value
-                val syncEvent = SyncEvent.Status(user.id, StatusValues.valueOf(user.status.uppercase()))
-                syncEvent.let {
-                    // Emit the sync event through syncMessageFlow
-                    runBlocking {
-                        _syncMessageFlow.emit(it)
-                    }
-                }
+                emitMessage(value, updateType)
             }
             is JSONArray -> {
-
+                for (i in 0 until value.length()) {
+                    val jsonArrayItem = value.getJSONObject(i) // You can also handle other types like strings or numbers if needed
+                    emitMessage(jsonArrayItem, updateType)
+                }
             }
         }
     }
 
+    private fun emitMessage(jsonArrayItem: JSONObject, updateType:String){
+        val user = userFromJsonObject(jsonArrayItem) // Assuming you have a userFromJsonObject function
+        Log.d("WebSocketDebug", "${user.name} (ID: ${user.id}), type: $updateType") // Handle user update from JSONArray item
+        val syncEvent = SyncEvent.Status(user.id, StatusValues.valueOf(user.status.uppercase()))
+        syncEvent.let {
+            // Emit the sync event through syncMessageFlow
+            runBlocking {
+                _syncMessageFlow.emit(it)
+            }
+        }
+    }
     private fun handleStatusMessage(messageJson: JSONObject) {
         val status = messageJson.getString("status")
         // Handle status update

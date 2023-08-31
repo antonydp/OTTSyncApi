@@ -34,12 +34,23 @@
                 android:text="Role"
                 android:textSize="14sp" />
     </LinearLayout>
-
-    <Button
+    <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+        <Button
+                android:id="@+id/promoteButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="promote"
+                android:layout_gravity="center_vertical" />
+        <Button
             android:id="@+id/kickButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Kick"
             android:layout_gravity="center_vertical" />
+    </LinearLayout>
 
 </LinearLayout>
