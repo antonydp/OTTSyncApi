@@ -31,14 +31,14 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
     val syncMessageFlow: Flow<SyncEvent> = _syncMessageFlow.asSharedFlow()
 
     suspend fun generateRoom(username: String, password: String) : String? = withContext(Dispatchers.IO) {
-        generateRoomID()
+        val id = generateRoomID()
         joinRoom(roomID?: throw Exception("No roomID"))
         registerUser(username, password)
         performLogin(token?: throw Exception("No token"), username, password)
         claimRoom(roomID?: throw Exception("No roomID"), token?: throw Exception("No token"))
-        return@withContext roomID
+        return@withContext id
     }
-    private suspend fun generateRoomID() = withContext(Dispatchers.IO) {
+    private suspend fun generateRoomID() : String? = withContext(Dispatchers.IO) {
 
         token = getToken() ?: throw Exception("token not found")
         val request = Request.Builder()
@@ -58,8 +58,9 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         else {
             throw Exception("Room Generation Exception")
         }
+        return@withContext token
     }
-    private suspend fun registerUser(username: String, password: String) = withContext(Dispatchers.IO) {
+    private suspend fun registerUser(username: String, password: String) : Boolean = withContext(Dispatchers.IO) {
 
         val registerRequestBody = JSONObject().apply {
             put("username", username)
@@ -85,11 +86,14 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
             println("Registration successful: $success")
             println("Username: ${user.getString("username")}")
             println("Email: ${user.getString("email")}")
+            response.close()
+            return@withContext true
         } else {
             println("Registration failed: ${response.code}")
         }
-
         response.close()
+        return@withContext false
+
     }
     private suspend fun performLogin(token: String, username: String, password: String) = withContext(Dispatchers.IO) {
         val loginRequestBody = JSONObject().apply {
