@@ -397,7 +397,6 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         } else {
             Log.d("WebSocketDebug", "WebSocket is not connected.")
         }
-        webSocket.cancel()
     }
 
     suspend fun updateRoomTitle(roomId: String, newTitle: String) : Boolean {
