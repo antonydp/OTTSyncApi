@@ -58,7 +58,7 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         else {
             throw Exception("Room Generation Exception")
         }
-        return@withContext token
+        return@withContext roomID
     }
     private suspend fun registerUser(username: String, password: String) : Boolean = withContext(Dispatchers.IO) {
 
