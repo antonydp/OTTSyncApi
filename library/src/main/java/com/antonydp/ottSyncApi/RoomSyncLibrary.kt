@@ -436,7 +436,7 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         val isPlaying = messageJson.optBoolean("isPlaying", false)
         val isSeek = !playbackPosition.isNaN() && !messageJson.has("isPlaying") && !messageJson.has("playbackSpeed") && !messageJson.has("currentSource")
         val isPlaybackSpeed = !playbackSpeed.isNaN() && !isSeek
-        val isPause = !playbackPosition.isNaN() && !isSeek &&!isPlaybackSpeed
+        val isPause = !playbackPosition.isNaN() && !isSeek &&!isPlaybackSpeed &&!messageJson.has("currentSource")
         val isCurrentSourceUpdated = messageJson.has("currentSource")
 
 
