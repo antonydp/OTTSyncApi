@@ -533,13 +533,13 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
     }
 
     private fun sourceFromJsonObject(userObject: JSONObject): CurrentSource {
-        val description = userObject.getString("description")
-        val id = userObject.getString("id")
-        val length = userObject.getString("length")
-        val service = userObject.getString("service")
-        val startAt = userObject.getString("startAt")
-        val thumbnail = userObject.getString("thumbnail")
-        val title = userObject.getString("title")
+        val description = userObject.optString("description")
+        val id = userObject.optString("id")
+        val length = userObject.optString("length")
+        val service = userObject.optString("service")
+        val startAt = userObject.optString("startAt")
+        val thumbnail = userObject.optString("thumbnail")
+        val title = userObject.optString("title")
         return CurrentSource(description, id, length, service, startAt, thumbnail, title )
     }
 
