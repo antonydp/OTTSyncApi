@@ -86,6 +86,8 @@ class MainActivity : AppCompatActivity() {
                 val source = syncEvent.source
                 Log.d("SyncEventDebug", "Source event - Source Title: ${source.title}, Source ID (link for direct urls): ${source.id} ")
             }
+
+            is SyncEvent.You -> TODO()
         }
     }
 

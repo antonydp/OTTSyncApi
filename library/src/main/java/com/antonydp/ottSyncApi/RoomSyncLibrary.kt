@@ -519,6 +519,13 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
     private fun handleYouMessage(messageJson: JSONObject) {
         userID = messageJson.getJSONObject("info").getString("id")
         Log.d("WebSocketDebug", "Received userID: $messageJson")
+        val syncEvent = SyncEvent.You(userID)
+        syncEvent.let {
+            // Emit the sync event through syncMessageFlow
+            runBlocking {
+                _syncMessageFlow.emit(it)
+            }
+        }
     }
 
     private fun userFromJsonObject(userObject: JSONObject): User {
@@ -587,6 +594,7 @@ sealed class SyncEvent {
     data class Message(val messageData: String) : SyncEvent()
     data class Status(val userID: String,val statusData: StatusValues) : SyncEvent()
     data class SourceUpdated(val source: CurrentSource): SyncEvent()
+    class You(val userID: String?): SyncEvent()
 
 }
 

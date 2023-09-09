@@ -30,7 +30,7 @@ publishing {
         maven(MavenPublication) {
             groupId 'com.antonydp'
             artifactId 'OTTSyncApi'
-            version '0.1.9'
+            version '0.2.0'
 
             afterEvaluate {
                 from components.release
