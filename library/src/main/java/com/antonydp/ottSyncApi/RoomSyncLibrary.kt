@@ -462,7 +462,7 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
     private fun handleEventMessage(messageJson: JSONObject) {
         val requestType = messageJson.getJSONObject("request").getInt("type")
         // Handle event based on request type
-        Log.d("boh", requestType.toString())
+        Log.d("eventMessageDebug", requestType.toString())
 
     }
 
