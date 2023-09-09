@@ -299,7 +299,7 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
     }
 
     // Function to send the seek action over WebSocket
-    fun sendSeekAction(seconds: Int) {
+    fun sendSeekAction(seconds: Double) {
         val seekPayload = JSONObject()
         seekPayload.put("action", "req")
         seekPayload.put("request", JSONObject().apply {

@@ -190,7 +190,7 @@ class MainActivity : AppCompatActivity() {
 
         seekButton.setOnClickListener {
             lifecycleScope.launch {
-                roomSyncLibrary.sendSeekAction(20)
+                roomSyncLibrary.sendSeekAction(20.0)
             }
         }
 
