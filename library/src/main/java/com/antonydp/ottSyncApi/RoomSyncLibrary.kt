@@ -433,17 +433,12 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
         val titleChanged = messageJson.optString("title", "")
         val currentSource = messageJson.optJSONObject("currentSource")
 
-        val isPlaying = messageJson.optBoolean("isPlaying", false)
         val isSeek = !playbackPosition.isNaN() && !messageJson.has("isPlaying") && !messageJson.has("playbackSpeed") && !messageJson.has("currentSource")
         val isPlaybackSpeed = !playbackSpeed.isNaN() && !isSeek
-        val isPause = !playbackPosition.isNaN() && !isSeek &&!isPlaybackSpeed &&!messageJson.has("currentSource")
         val isCurrentSourceUpdated = messageJson.has("currentSource")
 
 
         val syncEvent = when {
-            isPlaying -> SyncEvent.Play
-            isSeek -> SyncEvent.Seek(playbackPosition)
-            isPause -> SyncEvent.Pause(playbackPosition)
             isPlaybackSpeed -> SyncEvent.PlaybackSpeed(playbackPosition, playbackSpeed)
             titleChanged.isNotBlank() -> SyncEvent.TitleChanged(titleChanged)
             isCurrentSourceUpdated -> currentSource?.let { sourceFromJsonObject(it) }?.let { SyncEvent.SourceUpdated(it) }
@@ -461,9 +456,34 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
 
     private fun handleEventMessage(messageJson: JSONObject) {
         val requestType = messageJson.getJSONObject("request").getInt("type")
+        val requestbool = messageJson.getJSONObject("request").optBoolean("state")
+        val id = messageJson.getJSONObject("user").getString("id")
+        val isPlay = requestType == 2 && requestbool
+        val isPause = requestType == 2 && !requestbool
+        val isSeek = requestType == 4
         // Handle event based on request type
-        Log.d("eventMessageDebug", requestType.toString())
 
+        val syncEvent = when {
+            isPlay -> {
+                SyncEvent.Play(id)
+            }
+            isSeek -> {
+                val position = messageJson.getJSONObject("request").getDouble("value")
+                SyncEvent.Seek(position, id)
+            }
+            isPause -> {
+                SyncEvent.Pause(id)
+            }
+
+            else -> null
+        }
+
+        syncEvent?.let {
+            // Emit the sync event through syncMessageFlow
+            runBlocking {
+                _syncMessageFlow.emit(it)
+            }
+        }
     }
 
     private fun handleUserMessage(messageJson: JSONObject) {
@@ -586,10 +606,10 @@ class RoomSyncLibrary(private val okHttpClient: OkHttpClient) {
 }
 
 sealed class SyncEvent {
-    data class Seek(val playbackPosition: Double) : SyncEvent()
+    data class Seek(val playbackPosition: Double, val id: String) : SyncEvent()
     data class PlaybackSpeed(val playbackPosition: Double, val playbackSpeed: Double) : SyncEvent()
-    data class Pause(val playbackPosition: Double) : SyncEvent()
-    object Play : SyncEvent()
+    data class Pause(val id: String) : SyncEvent()
+    data class Play(val id: String) : SyncEvent()
     data class TitleChanged(val titleValue: String) : SyncEvent()
     data class Message(val messageData: String) : SyncEvent()
     data class Status(val userID: String,val statusData: StatusValues) : SyncEvent()

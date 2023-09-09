@@ -59,8 +59,8 @@ class MainActivity : AppCompatActivity() {
                 // Handle PlaybackSpeed sync event
             }
             is SyncEvent.Pause -> {
-                val playbackPosition = syncEvent.playbackPosition
-                Log.d("SyncEventDebug", "Pause event - Playback Position: $playbackPosition")
+                val id = syncEvent.id
+                Log.d("SyncEventDebug", "Pause event - id: $id")
                 // Handle Pause sync event
             }
             is SyncEvent.Play -> {
@@ -87,7 +87,11 @@ class MainActivity : AppCompatActivity() {
                 Log.d("SyncEventDebug", "Source event - Source Title: ${source.title}, Source ID (link for direct urls): ${source.id} ")
             }
 
-            is SyncEvent.You -> TODO()
+            is SyncEvent.You -> {
+                val source = syncEvent.userID
+                Log.d("SyncEventDebug", "Source event - ID : ${source} ")
+
+            }
         }
     }
 
